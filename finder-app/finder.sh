@@ -4,11 +4,11 @@
 # searches for lines matching SEARCHSTR in directory FILESDIR
 
 # check # of args
-if [ $# -lt 2 ]
-then
-    echo "Invalid arguments"
-    exit 1
-fi
+# if [ $# -lt 2 ]
+# then
+#     echo "Invalid arguments"
+#     exit 1
+# fi
 
 
 # valid directory?
