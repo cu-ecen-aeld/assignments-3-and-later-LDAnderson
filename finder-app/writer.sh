@@ -15,9 +15,11 @@ then
 fi
 
 dir=$(dirname $2)
+mkdir -p $dir
 if [ ! -d $dir ]
 then
-    mkdir $dir
+    echo "error creating files"
+    exit 1
 fi
 
 
