@@ -15,6 +15,7 @@ void writeFile(char *filename, char *s) {
   fp = fopen(filename, "w");
   if(fp == NULL) {
     syslog(LOG_ERR, "Cannot open file");
+    exit(1);
   }
 
   fprintf(fp, s);
@@ -26,7 +27,7 @@ int main(int argc, char *argv[]) {
 
   if(argc != 3) {
     syslog(LOG_ERR, "Invalid arguments");
-    exit(-1);
+    exit(1);
   }
 
   char *filename = argv[1];
