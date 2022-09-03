@@ -3,7 +3,7 @@ on: [push]
 jobs:
     full-test:
         container: cuaesd/aesd-autotest:assignment2
-        runs-on: self-hosted
+        runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v2
           - name: Checkout submodules
