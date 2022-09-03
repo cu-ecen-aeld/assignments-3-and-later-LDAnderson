@@ -1,4 +1,8 @@
 #include "systemcalls.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 /**
  * @param cmd the command to execute with system()
@@ -17,7 +21,16 @@ bool do_system(const char *cmd)
  *   or false() if it returned a failure
 */
 
+  int rc = -1;
+  rc = system(cmd);
+  if(rc == 0) {
     return true;
+  }
+  else {
+    return false;
+  }
+
+
 }
 
 /**
@@ -40,24 +53,27 @@ bool do_exec(int count, ...)
     va_start(args, count);
     char * command[count+1];
     int i;
+    int rc = -1;
+    pid_t p;
+
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
 
-/*
- * TODO:
- *   Execute a system command by calling fork, execv(),
- *   and wait instead of system (see LSP page 161).
- *   Use the command[0] as the full path to the command to execute
- *   (first argument to execv), and use the remaining arguments
- *   as second argument to the execv() command.
- *
-*/
+    p = fork();
+    if(p == -1)
+      perror("fork");
+    else {
+      rc = execv(command[0], &command[1]);
+      exit(-1);
+    }
+
+    if (waitpid(p, &rc, 0) == -1)
+      return -1;
+    else
+      return true;
 
     va_end(args);
 
@@ -80,10 +96,30 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    // this line is to avoid a compile warning before your implementation is complete
-    // and may be removed
-    command[count] = command[count];
+    int kidpid;
 
+    int fd = open("redirected.txt", O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    if (fd < 0) {
+      perror("open");
+      abort();
+    }
+    switch (kidpid = fork()) {
+    case -1:
+      perror("fork");
+      abort();
+    case 0:
+      if (dup2(fd, 1) < 0) {
+        perror("dup2");
+        abort();
+      }
+      close(fd);
+
+      execvp(command[0], &command[1]);
+      perror("execvp");
+      abort();
+    default:
+      close(fd);
+    }
 
 /*
  * TODO
