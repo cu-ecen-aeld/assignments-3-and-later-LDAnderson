@@ -70,7 +70,7 @@ bool do_exec(int count, ...)
       exit(-1);
     }
 
-    if (waitpid(p, &rc, 0) == -1)
+    if ((waitpid(p, &rc, 0) == -1) || rc != 0)
       return -1;
     else
       return true;
@@ -91,6 +91,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     va_start(args, count);
     char * command[count+1];
     int i;
+    int rc = -1;
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
@@ -114,7 +115,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
       }
       close(fd);
 
-      execvp(command[0], &command[1]);
+      rc = execvp(command[0], &command[1]);
       perror("execvp");
       abort();
     default:
@@ -131,5 +132,8 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 
     va_end(args);
 
-    return true;
+    if(rc == 0)
+               return true;
+    else
+      return false;
 }
