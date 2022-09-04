@@ -67,7 +67,6 @@ bool do_exec(int count, ...)
       perror("fork");
     else {
       rc = execv(command[0], &command[1]);
-      exit(-1);
     }
 
     if ((waitpid(p, &rc, 0) == -1) || rc != 0)
@@ -134,6 +133,4 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 
     if(rc == 0)
                return true;
-    else
-      return false;
 }
