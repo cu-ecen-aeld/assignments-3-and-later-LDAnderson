@@ -1,4 +1,5 @@
 #include "systemcalls.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -62,6 +63,9 @@ bool do_exec(int count, ...)
     }
     command[count] = NULL;
 
+    if(command[0][0] != '/')
+      return false;
+
     p = fork();
     if(p == -1)
       perror("fork");
@@ -70,7 +74,7 @@ bool do_exec(int count, ...)
     }
 
     if ((waitpid(p, &rc, 0) == -1) || rc != 0)
-      return -1;
+      return false;
     else
       return true;
 
@@ -89,37 +93,42 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     va_list args;
     va_start(args, count);
     char * command[count+1];
-    int i;
+    int i, kidpid;
     int rc = -1;
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
     }
     command[count] = NULL;
-    int kidpid;
 
-    int fd = open("redirected.txt", O_WRONLY | O_TRUNC | O_CREAT, 0644);
+    if (command[0][0] != '/')
+      return false;
+    int fd = open(outputfile, O_WRONLY | O_TRUNC | O_CREAT, 0644);
     if (fd < 0) {
       perror("open");
       abort();
     }
-    switch (kidpid = fork()) {
-    case -1:
-      perror("fork");
-      abort();
-    case 0:
-      if (dup2(fd, 1) < 0) {
-        perror("dup2");
-        abort();
-      }
-      close(fd);
 
-      rc = execvp(command[0], &command[1]);
-      perror("execvp");
-      abort();
-    default:
-      close(fd);
+    kidpid = fork();
+    if(kidpid == -1) {
+      perror("fork");
+      return false;
     }
+
+    if (dup2(fd, fileno(stdout)) < 0) {
+      perror("dup2");
+      return false;
+    }
+    else
+      rc = execv(command[0], &command[1]);
+
+    if ((waitpid(kidpid, &rc, 0) == -1) || rc != 0)
+      return -1;
+
+    va_end(args);
+
+    close(fd);
+
 
 /*
  * TODO
@@ -131,6 +140,5 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 
     va_end(args);
 
-    if(rc == 0)
-               return true;
+    return true;
 }
