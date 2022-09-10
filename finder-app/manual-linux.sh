@@ -5,8 +5,8 @@
 # set -e
 set -u
 
-OUTDIR=~/Downloads/aeld
-ASSIGNMENTDIR=/home/lda/OneDrive/linux_system/assignment-1-LDAnderson/finder-app
+OUTDIR=/tmp/aeld
+ASSIGNMENTDIR=$(realpath $(dirname $0))
 # ASSIGNMENTDIR=/home/ace/assignment-1-LDAnderson/finder-app
 
 
@@ -28,6 +28,7 @@ fi
 ROOTDIR=${OUTDIR}/rootfs
 
 mkdir -p ${OUTDIR}
+mkdir -p ${ROOTDIR}
 
 if [ ! -d "${OUTDIR}" ]
    then
