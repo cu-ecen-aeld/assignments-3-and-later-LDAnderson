@@ -1,14 +1,13 @@
 #!/bin/bash
-# Script outline to install and build kernel.
-# Author: Siddhant Jajoo.
 
-PATH=$PATH:/home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin
+# PATH=$PATH:/home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin
 
-set -e
+# set -e
 set -u
 
 OUTDIR=~/Downloads/aeld
-ROOTDIR=~/Downloads/aeld/rootfs
+ASSIGNMENTDIR=/home/lda/OneDrive/linux_system/assignment-1-LDAnderson/finder-app
+# ASSIGNMENTDIR=/home/ace/assignment-1-LDAnderson/finder-app
 
 
  # git clone git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git --depth 1 --single-branch --branch v5.1.10
@@ -26,13 +25,16 @@ else
 	OUTDIR=$1
 	echo "Using passed directory ${OUTDIR} for output"
 fi
+ROOTDIR=${OUTDIR}/rootfs
+
+mkdir -p ${OUTDIR}
 
 if [ ! -d "${OUTDIR}" ]
+   then
    echo "Error creating output directory"
    exit 1
 fi
 
-mkdir -p ${OUTDIR}
 
 cd "$OUTDIR"
 if [ ! -d "${OUTDIR}/linux-stable" ]; then
@@ -40,27 +42,27 @@ if [ ! -d "${OUTDIR}/linux-stable" ]; then
 	echo "CLONING GIT LINUX STABLE VERSION ${KERNEL_VERSION} IN ${OUTDIR}"
 	git clone ${KERNEL_REPO} --single-branch --branch ${KERNEL_VERSION}
 fi
+
 if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     cd linux-stable
     echo "Checking out version ${KERNEL_VERSION}"
     git checkout ${KERNEL_VERSION}
 
-    # TODO: Add your kernel build steps here
 
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
-    sed -i 's/^YYLTYPE yylloc;/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.lex.c
-    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig virt
+    # make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig virt
 
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
-
+    sed -i 's/^YYLTYPE yylloc;/extern YYLTYPE yylloc;/' ${OUTDIR}/linux-stable/scripts/dtc/dtc-lexer.lex.c
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
 
 fi
 
 echo "Adding the Image in outdir"
-cp arch/arm64/boot/Image ${OUTDIR}
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}
 
 echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
@@ -72,6 +74,7 @@ fi
 
 mkdir -p ${ROOTDIR}
 if [ ! -d "${ROOTDIR}" ]
+   then
    echo "Error creating root directory"
    exit 1
 fi
@@ -81,7 +84,6 @@ cd ${ROOTDIR}
 mkdir bin dev etc home lib proc sbin sys tmp usr var
 mkdir usr/bin usr/lib usr/sbin
 mkdir -p var/log
-sudo chown -R root:root *
 
 # set up busy box
 
@@ -94,12 +96,13 @@ git clone git://busybox.net/busybox.git
     make distclean
     make defconfig
     # sudo make ARCH=arm CROSS_COMPILE=arm-unknown-linux-gnu-eabi- install
-    sudo make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
-    cd _install
-    sudo cp -r * ${ROOTDIR}
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} CONFIG_PREFIX=${ROOTDIR} install
+    # cd _install
+    # sudo cp -a * ${ROOTDIR}
 
 else
     cd busybox
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} CONFIG_PREFIX=${ROOTDIR} install
 fi
 
 echo "Library dependencies"
@@ -107,44 +110,52 @@ cd ${ROOTDIR}
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
 ${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
-# TODO: Add library dependencies to rootfs
-sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 lib
-sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib64/libm.so.6 lib
-sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 lib
-sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib64/libc.so.6 lib
+# sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib/ld-linux-aarch64.so.1 lib
+# sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib64/libm.so.6 lib
+# sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib64/libresolv.so.2 lib
+# sudo cp /home/lda/Downloads/gcc-arm-10.2-2020.11-x86_64-aarch64-none-linux-gnu/bin/../aarch64-none-linux-gnu/libc/lib64/libc.so.6 lib
 
-# TODO: Make device nodes
+SYSROOT=`aarch64-none-linux-gnu-gcc -print-sysroot`
+
 cd ${ROOTDIR}
+cp -a "${SYSROOT}"/lib/* lib/
+cp -a "${SYSROOT}"/lib64 .
+
+#  Make device nodes
 sudo mknod -m 666 dev/null c 1 3
-sudo mknod -m 600 /dev/console c 5 1
+sudo mknod -m 600 dev/console c 5 1
 
 # install modules
-cd ${OUTDIR}/linux-stable
-sudo make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} INSTALL_MOD_PATH=${ROOTDIR} modules_install
+# cd ${OUTDIR}/linux-stable
+# sudo make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} INSTALL_MOD_PATH=${ROOTDIR} modules_install
 
 # Clean and build the writer utility
-cd /home/lda/OneDrive/linux_system/assignment-1-LDAnderson/finder-app
+cd ${ASSIGNMENTDIR}
 make clean
-make
+make CROSS_COMPILE=${CROSS_COMPILE}
 sudo cp writer ${ROOTDIR}/home
 
 #  Copy the finder related scripts and executables to the /home directory
 # on the target rootfs
-cd /home/lda/OneDrive/linux_system/assignment-1-LDAnderson/finder-app
+cd ${ROOTDIR}
+cd home
+mkdir conf
+cd ${ASSIGNMENTDIR}
 sudo cp finder.sh ${ROOTDIR}/home
-sudo cp conf/username.txt ${ROOTDIR}/home
+sudo cp conf/username.txt ${ROOTDIR}/home/conf
 sudo cp finder-test.sh ${ROOTDIR}/home
 sudo cp autorun-qemu.sh ${ROOTDIR}/home
 
 #  Chown the root directory
-cd ${ROOTDIR}/..
-sudo chown root:root rootfs 
+cd ${ROOTDIR}
+sudo chown -R root:root .
 
 # Create initramfs.cpio.gz
 cd ${ROOTDIR}
-find . | sudo cpio -H newc -ov --owner root:root > initramfs.cpio
-gzip initramfs.cpio
+find . | sudo cpio -o -H newc  > ../initramfs.cpio
+cd ..
+gzip -f initramfs.cpio
 
 # QEMU_AUDIO_DRV=none qemu-system-arm -m 256M -nographic -M versatilepb -kernel zImage -append "console=ttyAMA0 rdinit=/bin/sh" -dtb versatile-pb.dtb -initrd initramfs.cpio.gz
 
-qemu-system-arm -m 256M -nographic -M versatilepb -kernel Image 
+# qemu-system-arm -m 256M -nographic -M versatilepb -kernel Image
