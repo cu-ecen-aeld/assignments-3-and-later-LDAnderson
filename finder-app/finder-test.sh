@@ -47,16 +47,44 @@ echo "Removing the old writer utility and compiling as a native application"
 # make clean
 # make
 
-for i in $( seq 1 $NUMFILES)
-do
-	./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
-done
+if [ -e ./writer ]
+then
+    for i in $( seq 1 $NUMFILES)
+    do
+	      ./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+    done
+else
+    which writer
+    if [ $? -eq 0 ]
+       then
+           for i in $( seq 1 $NUMFILES)
+           do
+	             writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+           done
+    else
+        echo "Cannot find writer"
+        exit 1
+    fi
+fi
 
-OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
+if [ -e ./writer ]
+then
+    OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
+    else
+        which finder
+        if [ $? -eq 0 ]
+           then
+           OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
+        else
+            echo "Cannot find finder"
+            exit 1
+        fi
+fi
 
 set +e
 echo ${OUTPUTSTRING} | grep "${MATCHSTR}"
 if [ $? -eq 0 ]; then
+    echo ${OUTPUTSTRING} > /tmp/assignment-4-result.txt
 	echo "success"
 	exit 0
 else
