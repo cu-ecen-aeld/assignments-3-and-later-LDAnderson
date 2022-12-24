@@ -1,26 +1,3 @@
-<<<<<<< HEAD
-name: assignment-test
-on: [push]
-jobs:
-    unit-test:
-        container: cuaesd/aesd-autotest:unit-test
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v2
-          - name: Checkout submodules
-            run : git submodule update --init --recursive
-          - name: Run unit test
-            run: ./unit-test.sh 
-    full-test:
-        container: cuaesd/aesd-autotest:assignment3
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v2
-          - name: Checkout submodules
-            run : git submodule update --init --recursive
-          - name: Run full test
-            run: ./full-test.sh
-=======
 name: assignment-test
 on: [push]
 jobs:
@@ -42,4 +19,3 @@ jobs:
             run : git submodule update --init --recursive
           - name: Run full test
             run: ./full-test.sh
->>>>>>> assignments-base/assignment6
