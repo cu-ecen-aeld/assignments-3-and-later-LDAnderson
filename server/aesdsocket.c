@@ -105,30 +105,33 @@ int main(int argc, char *argv[]) {
                    datap->thread
     );
 
-    /* SLIST_FOREACH(datap, &head, entries) { */
-    /*   if(datap->thread->finished != 0) { */
-    /*     pthread_join(*datap->thread->thread_id, NULL); */
-    /*     free(datap->thread); */
-    /*     SLIST_REMOVE(&head, datap, slist_data_s, entries); */
-    /*     free(datap); */
-    /*   } */
-    /* } */
+    SLIST_FOREACH(datap, &head, entries) {
+      if(datap->thread->finished != 0) {
+        pthread_join(*datap->thread->thread_id, NULL);
+        free(datap->thread->thread_id);
+        free(datap->thread);
+        SLIST_REMOVE(&head, datap, slist_data_s, entries);
+        /* free(datap); */
+      }
+    }
   }
 }
 
 void int_handler() {
   syslog(LOG_USER, "Caught signal, exiting");
   printf("Shutting down server.\n");
-  SLIST_FOREACH(datap, &head, entries) {
+  while (!SLIST_EMPTY(&head)) {
+    datap = SLIST_FIRST(&head);
     shutdown(datap->thread->client_filed, SHUT_RDWR);
     close(datap->thread->client_filed);
-    fclose(fp);
     pthread_join(*datap->thread->thread_id, NULL);
+    free(datap->thread->thread_id);
     free(datap->thread);
-    SLIST_REMOVE(&head, datap, slist_data_s, entries);
-    }
-  free(datap);
+    SLIST_REMOVE_HEAD(&head, entries);
+    free(datap);
+  }
 
+  fclose(fp);
   shutdown(server_filed, SHUT_RDWR);
   close(server_filed);
   remove(LOG_FILE);
@@ -187,6 +190,7 @@ void *socket_thread(void* threadp) {
 
   } while (c != '\n');
 
+  fflush(fp);
   pthread_mutex_unlock(&lock);
 
   fp2 = fopen(LOG_FILE, "r");
@@ -210,6 +214,7 @@ void* timer_thread() {
   struct tm *tmp;
 
   for(;;) {
+    sleep(10);
     t = time(NULL);
     tmp = localtime(&t);
     if (tmp == NULL) {
@@ -221,7 +226,6 @@ void* timer_thread() {
     strftime(timestr, sizeof(timestr), "%a, %d %b %Y %T %z", tmp);
     fprintf(fp, "timestamp:%s\n", timestr);
     pthread_mutex_unlock(&lock);
-    sleep(10);
   }
 }
 
