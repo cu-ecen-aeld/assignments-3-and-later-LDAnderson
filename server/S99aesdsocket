@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/sh
 
 echo ${DAEMON_STARTED}
 if [[ $DAEMON_STARTED -eq 1 ]] ; then
