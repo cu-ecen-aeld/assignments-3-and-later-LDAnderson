@@ -1,0 +1,13 @@
+#!/bin/ash
+
+echo ${DAEMON_STARTED}
+if [[ $DAEMON_STARTED -eq 1 ]] ; then
+   export DAEMON_STARTED=0
+   killall -s SIGINT aesdsocket
+   echo "Daemon Stopped"
+else
+  export DAEMON_STARTED=1
+  echo "Daemon Started"
+  aesdsocket -d
+fi
+
