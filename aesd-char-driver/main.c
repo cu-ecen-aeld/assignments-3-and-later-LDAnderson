@@ -5,9 +5,6 @@
  * Based on the implementation of the "scull" device driver, found in
  * Linux Device Drivers example code.
  *
- * @author Dan Walkes
- * @date 2019-10-22
- * @copyright Copyright (c) 2019
  *
  */
 
@@ -21,7 +18,7 @@
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
 
-MODULE_AUTHOR("Your Name Here"); /** TODO: fill in your name **/
+MODULE_AUTHOR("L.D. Anderson");
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev aesd_device;

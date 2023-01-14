@@ -2,7 +2,7 @@
 * assignment 7-1
  */
 
-#define _DEBUG 0
+// #define _DEBUG 0
 
 #ifdef _DEBUG
 #include <stdio.h>
@@ -95,18 +95,3 @@ void aesd_circular_buffer_init(struct aesd_circular_buffer *buffer)
     buffer->in_offs = 0;
     buffer->out_offs = 0;
 }
-
-/* void main() { */
-
-/*   struct aesd_circular_buffer buffer; */
-/*   struct aesd_buffer_entry *entry; */
-/*   size_t offset_rtn=0, pos = 0; */
-
-/*   aesd_circular_buffer_init(&buffer); */
-/*   write_circular_buffer_packet(&buffer,"write1\n"); */
-/*   write_circular_buffer_packet(&buffer,"write2\n"); */
-/*   entry = aesd_circular_buffer_find_entry_offset_for_fpos(buffer, pos, &offset_rtn); */
-/*   printf("%s\n", entry->buffptr); */
-
-
-/* } */

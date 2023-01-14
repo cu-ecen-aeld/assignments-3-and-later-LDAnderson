@@ -19,8 +19,13 @@
 #include <sys/types.h>
 
 #define DEFAULT_PORT 9000
-#define LOG_FILE "/var/tmp/aesdsocketdata"
+#define USE_AESD_CHAR_DEVICE 1
 
+#if USE_AESD_CHAR_DEVICE == 1
+#define LOG_FILE "/dev/aesdchar"
+#else
+#define LOG_FILE "/var/tmp/aesdsocketdata"
+#endif
 
 void int_handler();
 void *socket_thread(void* threadp);
@@ -70,8 +75,10 @@ int main(int argc, char *argv[]) {
     pid = start_daemon();
   }
 
+  #if USE_AESD_CHAR_DEVICE == 0
   // start timer thread
   pthread_create(&timer, (void *)0, timer_thread, (void *)0);
+  #endif
 
   // begin server code
   printf("Starting server.\n");
