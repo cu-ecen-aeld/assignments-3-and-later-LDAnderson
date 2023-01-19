@@ -45,12 +45,37 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
     ssize_t retval = 0;
+    int _strlen = 0;
+    int k = 0;
+    char* return_str;
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
     /**
      * TODO: handle read
      */
-    return retval;
-}
+
+    if (mutex_lock_interruptible(&aesd_device.lock))
+      return -ERESTARTSYS;
+    for(int i=aesd_device.pos;i<aesd_device.len;i++) {
+      _strlen += strlen(aesd_device.list[i]);
+    }
+
+    return_str = kmalloc(_strlen, GFP_KERNEL);
+    for(int i = aesd_device.pos; i < aesd_device.len; i++) {
+      for(int j=0;j<strlen(aesd_device.list[i]); j++) {
+        return_str[k++] = *aesd_device.list[j];
+      }
+    }
+
+    if (copy_to_user(buf, return_str, count)) {
+      retval = -EFAULT;
+      goto done;
+    }
+    retval = _strlen;
+
+    done:
+      mutex_unlock(&aesd_device.lock);
+      return retval;
+    }
 
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
@@ -60,6 +85,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     /**
      * TODO: handle write
      */
+
     return retval;
 }
 struct file_operations aesd_fops = {
@@ -99,10 +125,10 @@ int aesd_init_module(void)
     }
     memset(&aesd_device,0,sizeof(struct aesd_dev));
 
-    /**
-     * TODO: initialize the AESD specific portion of the device
-     */
+    // mutex
+    mutex_init(&aesd_device.lock);
 
+    // cdev
     result = aesd_setup_cdev(&aesd_device);
 
     if( result ) {
