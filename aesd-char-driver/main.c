@@ -48,6 +48,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     ssize_t retval = 0;
     int _strlen = 0;
     int k = 0;
+    int i,j;
     char* return_str;
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 
@@ -57,13 +58,13 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
       goto done;
     }
 
-      for(int i=aesd_device.pos;i<aesd_device.len;i++) {
+      for(i=aesd_device.pos;i<aesd_device.len;i++) {
       _strlen += strlen(aesd_device.list[i]);
     }
 
     return_str = kmalloc(_strlen, GFP_KERNEL);
-    for(int i = aesd_device.pos; i < aesd_device.len; i++) {
-      for(int j=0;j<strlen(aesd_device.list[i]); j++) {
+    for(i = aesd_device.pos; i < aesd_device.len; i++) {
+      for(j=0;j<strlen(aesd_device.list[i]); j++) {
         return_str[k++] = *aesd_device.list[j];
       }
     }
@@ -82,6 +83,8 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
+  pos=aesd_device.pos;
+  len=aesd_device.len;
     ssize_t retval = -ENOMEM;
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
 
@@ -90,12 +93,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     if(aesd_device.len==10) {
       kfree(aesd_device[pos]);
-      aesd_device[pos] = kmalloc(strlen(buf) * sizeof(char));
+      aesd_device[pos] = kmalloc(strlen(buf) * sizeof(char), GFP_KERNEL);
       copy_from_user(aesd_device[pos], buf, strlen(buf));
       (aesd_device.pos==9) ? aesd_device.pos = 0 : aesd_device.pos++;
     } else {
 
-      aesd_device[len] = kmalloc(strlen(buf) * sizeof(char));
+  aesd_device[len] = kmalloc(strlen(buf) * sizeof(char), GFP_KERNEL);
       copy_from_user(aesd_device[len], buf, strlen(buf));
       aesd_device.len++;
     }
