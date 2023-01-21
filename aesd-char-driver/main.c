@@ -14,6 +14,7 @@
 #include <linux/types.h>
 #include <linux/cdev.h>
 #include <linux/fs.h> // file_operations
+#include <linux/slab.h>		/* kmalloc() */
 #include "aesdchar.h"
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
@@ -49,13 +50,14 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     int k = 0;
     char* return_str;
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
-    /**
-     * TODO: handle read
-     */
 
     if (mutex_lock_interruptible(&aesd_device.lock))
       return -ERESTARTSYS;
-    for(int i=aesd_device.pos;i<aesd_device.len;i++) {
+    if(aesd_device.len <= 0) {
+      goto done;
+    }
+
+      for(int i=aesd_device.pos;i<aesd_device.len;i++) {
       _strlen += strlen(aesd_device.list[i]);
     }
 
@@ -82,10 +84,24 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 {
     ssize_t retval = -ENOMEM;
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
-    /**
-     * TODO: handle write
-     */
 
+    if (mutex_lock_interruptible(&aesd_device.lock))
+      return -ERESTARTSYS;
+
+    if(aesd_device.len==10) {
+      kfree(aesd_device[pos]);
+      aesd_device[pos] = kmalloc(strlen(buf) * sizeof(char));
+      copy_from_user(aesd_device[pos], buf, strlen(buf));
+      (aesd_device.pos==9) ? aesd_device.pos = 0 : aesd_device.pos++;
+    } else {
+
+      aesd_device[len] = kmalloc(strlen(buf) * sizeof(char));
+      copy_from_user(aesd_device[len], buf, strlen(buf));
+      aesd_device.len++;
+    }
+
+ done:
+    mutex_unlock(&aesd_device.lock);
     return retval;
 }
 struct file_operations aesd_fops = {
