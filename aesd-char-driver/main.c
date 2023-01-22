@@ -93,13 +93,14 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     if(aesd_device.len==10) {
       kfree(aesd_device.list[pos]);
-      aesd_device.list[pos] = kmalloc(strlen(buf) * sizeof(char), GFP_KERNEL);
-      copy_from_user(aesd_device.list[pos], buf, strlen(buf));
+      aesd_device.list[pos] = kmalloc(count * sizeof(char), GFP_KERNEL);
+      memset(aesd_device.list[pos], 0, count * sizeof(char *));
+      copy_from_user(aesd_device.list[pos], buf, count);
       (aesd_device.pos==9) ? aesd_device.pos = 0 : aesd_device.pos++;
     } else {
-
-  aesd_device.list[len] = kmalloc(strlen(buf) * sizeof(char), GFP_KERNEL);
-      copy_from_user(aesd_device.list[len], buf, strlen(buf));
+      aesd_device.list[len] = kmalloc(count * sizeof(char), GFP_KERNEL);
+      memset(aesd_device.list[len], 0, count * sizeof(char *));
+      copy_from_user(aesd_device.list[len], buf, count);
       aesd_device.len++;
     }
 
