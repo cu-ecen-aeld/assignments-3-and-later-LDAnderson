@@ -5,6 +5,9 @@
  * Based on the implementation of the "scull" device driver, found in
  * Linux Device Drivers example code.
  *
+ * @author Dan Walkes
+ * @date 2019-10-22
+ * @copyright Copyright (c) 2019
  *
  */
 
@@ -14,12 +17,13 @@
 #include <linux/types.h>
 #include <linux/cdev.h>
 #include <linux/fs.h> // file_operations
-#include <linux/slab.h>		/* kmalloc() */
+#include <linux/slab.h>
+#include <linux/uaccess.h>
 #include "aesdchar.h"
 int aesd_major =   0; // use dynamic major
 int aesd_minor =   0;
 
-MODULE_AUTHOR("L.D. Anderson");
+MODULE_AUTHOR("Leif Anderson"); 
 MODULE_LICENSE("Dual BSD/GPL");
 
 struct aesd_dev aesd_device;
@@ -46,65 +50,130 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
                 loff_t *f_pos)
 {
     ssize_t retval = 0;
-    int _strlen = 0;
-    int k = 0;
-    int i,j;
-    char* return_str;
+    size_t ourcount = 0, outbuflen = 0;
+    int i=0;
+    int _pos;
+    char* outbuf = NULL;
+
+    if(aesd_device.size == 10) 
+	    _pos = aesd_device.pos;
+    else
+	    _pos = 0;
+
     PDEBUG("read %zu bytes with offset %lld",count,*f_pos);
 
     if (mutex_lock_interruptible(&aesd_device.lock))
-      return -ERESTARTSYS;
-    if(aesd_device.len <= 0) {
-      goto done;
-    }
+	    return -ERESTARTSYS;
 
-      for(i=aesd_device.pos;i<aesd_device.len;i++) {
-      _strlen += strlen(aesd_device.list[i]);
-    }
+    if(aesd_device.size == 0) 
+	    goto readdone;
 
-    return_str = kmalloc(_strlen, GFP_KERNEL);
-    for(i = aesd_device.pos; i < aesd_device.len; i++) {
-      for(j=0;j<strlen(aesd_device.list[i]); j++) {
-        return_str[k++] = *aesd_device.list[j];
-      }
+    for(i=0; i<aesd_device.size; i++) {
+	    outbuflen += strlen(aesd_device.list[i]);
     }
+    outbuf = kmalloc(outbuflen * sizeof(char *), GFP_KERNEL);
+    if(!outbuf)
+	    goto readdone;
 
-    if (copy_to_user(buf, return_str, count)) {
-      retval = -EFAULT;
-      goto done;
-    }
-    retval = _strlen;
+    if(*f_pos >= outbuflen)
+	    goto readdone;
 
-    done:
-      mutex_unlock(&aesd_device.lock);
-      return retval;
-    }
+    i = _pos;
+    do {
+
+    PDEBUG("pos = %d   _pos = %d\n", aesd_device.pos, _pos);
+	    ourcount = strlen(aesd_device.list[i]);
+
+	    strcat(outbuf, aesd_device.list[i]);
+
+    PDEBUG("outbuflen = %d   ourcount = %d    \n", outbuflen, ourcount);
+
+	    *f_pos += ourcount;
+
+	    retval += ourcount;
+	    _pos++;
+	    if(_pos == 10)
+		    _pos = 0;
+
+	    i = _pos;
+    } while(_pos != aesd_device.pos);
+
+    if(copy_to_user(buf, outbuf, outbuflen)) {
+	  retval = -EFAULT;
+	  goto readdone;
+    } 
+readdone:
+    mutex_unlock(&aesd_device.lock);
+    return retval;
+}
 
 ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
                 loff_t *f_pos)
 {
-  int pos=aesd_device.pos;
-  int len=aesd_device.len;
     ssize_t retval = -ENOMEM;
+    static int _append = 0;
+    char* tempbuf1 = NULL; 
+    char* tempbuf2 = NULL;
+
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
-
     if (mutex_lock_interruptible(&aesd_device.lock))
-      return -ERESTARTSYS;
+	    return -ERESTARTSYS;
+    if(_append) {
+	    tempbuf1 = kmalloc(count * sizeof(char *), GFP_KERNEL);
+	    if(!tempbuf1)
+		    goto done;
+	    tempbuf2 = kmalloc((count + strlen(aesd_device.list[aesd_device.pos])) * sizeof(char *), GFP_KERNEL);
+	    if(!tempbuf2)
+		    goto done;
 
-    if(aesd_device.len==10) {
-      kfree(aesd_device.list[pos]);
-      aesd_device.list[pos] = kmalloc(count * sizeof(char), GFP_KERNEL);
-      memset(aesd_device.list[pos], 0, count * sizeof(char *));
-      copy_from_user(aesd_device.list[pos], buf, count);
-      (aesd_device.pos==9) ? aesd_device.pos = 0 : aesd_device.pos++;
-    } else {
-      aesd_device.list[len] = kmalloc(count * sizeof(char), GFP_KERNEL);
-      memset(aesd_device.list[len], 0, count * sizeof(char *));
-      copy_from_user(aesd_device.list[len], buf, count);
-      aesd_device.len++;
+	    if(copy_from_user(tempbuf1, buf, count)) {
+		    retval = -EFAULT;
+		    goto done;
+	    }
+
+	    strcat(tempbuf2, aesd_device.list[aesd_device.pos]);
+	    strcat(tempbuf2, tempbuf1);
+	    kfree(aesd_device.list[aesd_device.pos]);
+	    PDEBUG("outstr %s", tempbuf2);
+	    aesd_device.list[aesd_device.pos] = tempbuf2;
+
+		if(tempbuf1[count-1] != '\n') {
+			_append = 1;
+		} else {
+			_append = 0;
+		    if(++aesd_device.pos == 10) 
+			    aesd_device.pos = 0;
+		}
+
+    }
+    else {
+
+	    aesd_device.list[aesd_device.pos] = kmalloc(count * sizeof(char *), GFP_KERNEL);
+	    if(!aesd_device.list[aesd_device.pos])
+		    goto done;
+
+	    if(copy_from_user(aesd_device.list[aesd_device.pos], buf, count)) {
+		    retval = -EFAULT;
+		    goto done;
+	    }
+
+	    if(aesd_device.size < 10) {
+		    aesd_device.size++;
+	    }
+	if(aesd_device.list[aesd_device.pos][count-1] != '\n') {
+		_append = 1;
+	} else {
+		_append = 0;
+	    if(++aesd_device.pos == 10) 
+		    aesd_device.pos = 0;
+
+	}
     }
 
- done:
+    retval = count;
+    PDEBUG("size: %d   append: %d   list1 = %s   list_last = %s\n", aesd_device.size, _append, aesd_device.list[0], aesd_device.list[aesd_device.size-1]);
+
+done:
     mutex_unlock(&aesd_device.lock);
     return retval;
 }
@@ -144,11 +213,8 @@ int aesd_init_module(void)
         return result;
     }
     memset(&aesd_device,0,sizeof(struct aesd_dev));
-
-    // mutex
     mutex_init(&aesd_device.lock);
 
-    // cdev
     result = aesd_setup_cdev(&aesd_device);
 
     if( result ) {
