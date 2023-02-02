@@ -28,11 +28,11 @@ struct aesd_dev
     /**
      * TODO: Add structure(s) and locks needed to complete assignment requirements
      */
-  struct cdev cdev;     /* Char device structure      */
-  char* list[10];  /* Data received from socket */
-  struct mutex lock;
-  int len;
-  int pos;
+    struct cdev cdev;     /* Char device structure      */
+    struct mutex lock;
+    int pos;
+    int size;
+    char* list[10];
 };
 
 
