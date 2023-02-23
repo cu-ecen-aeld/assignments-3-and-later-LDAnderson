@@ -17,6 +17,8 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/ioctl.h>
+#include "aesd_ioctl.h"
 
 #define DEFAULT_PORT 9000
 #define USE_AESD_CHAR_DEVICE 1
@@ -172,11 +174,17 @@ void init_server() {
 void *socket_thread(void* threadp) {
   FILE * fp2;
   int i;
+  int fpos;
   char c;
+  char *tmp;
   char remote_address[INET_ADDRSTRLEN];
   thread_info* threadparams = threadp;
   int client_filed = threadparams->client_filed;
   struct sockaddr_in client_sockaddr = threadparams->client_sockaddr;
+  struct aesd_seekto ioctl_object;
+
+  tmp = malloc(1024 * sizeof(char *));
+  bzero(tmp, 1024);
 
   inet_ntop(AF_INET, &(client_sockaddr.sin_addr), remote_address,
             INET_ADDRSTRLEN);
@@ -187,15 +195,41 @@ void *socket_thread(void* threadp) {
   bzero(buf, 30000);
 
   pthread_mutex_lock(&lock);
+
+  fpos = 0;
   do {
+    fpos++;
     i = recv(client_filed, &c, 1, MSG_WAITALL);
+
     if (i < 0) {
       perror("recv");
       exit(-1);
     }
-    fprintf(fp, "%c", c);
 
+    sprintf(&tmp[fpos-1], "%c", c);
   } while (c != '\n');
+
+  // check string for ioctl cmd
+
+  if(strncmp(tmp, "AESDCHAR_IOCSEEKTO", strlen("AESDCHAR_IOCSEEKTO")) == 0) {
+
+	  int cmd_pos = tmp[19] - '0';
+	  int cmd_offset = tmp[21] - '0';
+
+	  ioctl_object.write_cmd = cmd_pos;
+	  ioctl_object.write_cmd_offset = cmd_offset;
+
+	  printf("\nIN SEEKTO   pos: %d    offset: %d\n", ioctl_object.write_cmd, ioctl_object.write_cmd_offset);
+
+	  if(ioctl(fileno(fp), AESDCHAR_IOCSEEKTO, &ioctl_object) < 0) {
+		  perror("ioctl");
+		  exit(-1);
+	  }
+
+  } else {
+
+	fprintf(fp, "%s", tmp);
+  }
 
   fflush(fp);
   pthread_mutex_unlock(&lock);
